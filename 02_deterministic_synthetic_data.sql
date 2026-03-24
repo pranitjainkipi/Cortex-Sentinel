@@ -97,7 +97,7 @@ FROM VALUES
 -- ============================================================
 -- 2. CLAIMS (100 rows)
 -- ============================================================
-select * from truncate   SENTINEL_DB.CLAIMS.CLAIMS;
+
 
 INSERT INTO SENTINEL_DB.CLAIMS.CLAIMS
     (claim_no, policy_id, customer_id, claim_type, claim_status, line_of_business, cause_of_loss, loss_description, loss_date, reported_date, fnol_completion_date, loss_state, loss_zip_code, performer, claimant_id)
