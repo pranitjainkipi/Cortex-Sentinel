@@ -403,6 +403,70 @@ select * from SENTINEL_DB.KNOWLEDGE.GUIDELINES_CHUNKS;
 
 select * from SENTINEL_DB.KNOWLEDGE.NOTES_CHUNKS;
 
+ -- ============================================================
+-- PROCESS: Populate PARSED_CLAIM_NOTES with LLM-generated notes
+-- ============================================================
+-- Since there are no claim-note PDFs on DOCS_STAGE, we use
+-- CORTEX.COMPLETE to synthesize realistic adjuster notes for
+-- each claim, drawing on the claim's own metadata (type, cause,
+-- description, dates) so the notes are contextually accurate.
+-- ============================================================
+
+CREATE OR REPLACE PROCEDURE SENTINEL_DB.KNOWLEDGE.GENERATE_CLAIM_NOTES()
+RETURNS STRING
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.11'
+PACKAGES = ('snowflake-snowpark-python')
+HANDLER = 'generate'
+AS
+$$
+def generate(session):
+    claims = session.sql("""
+        SELECT claim_no, claim_type, line_of_business, cause_of_loss,
+               loss_description, loss_date, loss_state, claim_status
+        FROM SENTINEL_DB.CLAIMS.CLAIMS
+        ORDER BY claim_no
+    """).collect()
+
+    batch_size = 10
+    inserted = 0
+    for i in range(0, len(claims), batch_size):
+        batch = claims[i:i+batch_size]
+        values = []
+        for c in batch:
+            prompt = (
+                f"Generate realistic insurance adjuster claim notes for claim {c.CLAIM_NO}. "
+                f"Line of business: {c.LINE_OF_BUSINESS}. Cause of loss: {c.CAUSE_OF_LOSS}. "
+                f"Loss description: {c.LOSS_DESCRIPTION}. Loss date: {c.LOSS_DATE}. "
+                f"State: {c.LOSS_STATE}. Status: {c.CLAIM_STATUS}. "
+                "Include 3-5 dated entries (YYYY-MM-DD format) from different adjusters covering: "
+                "initial assessment, investigation findings, damage evaluation, repair estimates, "
+                "and settlement recommendation. Use realistic insurance terminology. "
+                "Return plain text only, no markdown code fences."
+            )
+            safe_prompt = prompt.replace("'", "''")
+            note_result = session.sql(f"""
+                SELECT SNOWFLAKE.CORTEX.COMPLETE('llama3.1-70b', '{safe_prompt}')
+            """).collect()
+            note_text = note_result[0][0].replace("'", "''") if note_result else ''
+            filename = f"{c.CLAIM_NO}_notes.txt"
+            values.append(f"('{filename}', '{c.CLAIM_NO}', '{note_text}', CURRENT_TIMESTAMP())")
+            inserted += 1
+
+        if values:
+            insert_sql = f"""
+                INSERT INTO SENTINEL_DB.KNOWLEDGE.PARSED_CLAIM_NOTES
+                (filename, claim_no, extracted_content, parse_date)
+                VALUES {', '.join(values)}
+            """
+            session.sql(insert_sql).collect()
+
+    return f'Generated claim notes for {inserted} claims'
+$$;
+
+CALL SENTINEL_DB.KNOWLEDGE.GENERATE_CLAIM_NOTES(); 
+  
+  
 -- Chunk claim notes similarly
 CREATE OR REPLACE TABLE SENTINEL_DB.KNOWLEDGE.NOTES_CHUNKS AS
 SELECT
