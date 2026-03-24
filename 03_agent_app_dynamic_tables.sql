@@ -8,198 +8,297 @@
 # File: sentinel_claims_model.yaml
 # Upload: PUT file://sentinel_claims_model.yaml @SENTINEL_DB.MODELS.SEMANTIC_STAGE;
 
-name: sentinel_claims_analysis
-description: >
-  Insurance claims analysis model for Cortex Sentinel. Covers claims lifecycle,
-  financial transactions, policy data, and customer information.
-
+ name: sentinel_claims_analysis
+description: |
+  Insurance claims analysis model for Cortex Sentinel. Covers claims lifecycle, financial transactions, policy data, and customer information.
 tables:
   - name: claims
-    description: "Insurance claims filed by policyholders, including FNOL and status tracking"
+    description: Insurance claims filed by policyholders, including FNOL and status tracking
     base_table:
       database: SENTINEL_DB
       schema: CLAIMS
       table: CLAIMS
     dimensions:
+      - name: cause_of_loss
+        synonyms:
+          - loss cause
+          - peril
+          - reason
+        description: What caused the insured loss
+        expr: CAUSE_OF_LOSS
+        data_type: VARCHAR
+        sample_values:
+          - COLLISION
+          - FIRE
+          - WATER_DAMAGE
+          - THEFT
+          - WIND
+          - SLIP_AND_FALL
       - name: claim_no
-        description: "Unique claim identifier"
+        description: Unique claim identifier
         expr: CLAIM_NO
         data_type: VARCHAR
         unique: true
       - name: claim_status
-        synonyms: ["status", "claim state", "current status"]
-        description: "Current processing status of the claim"
+        synonyms:
+          - claim state
+          - current status
+          - status
+        description: Current processing status of the claim
         expr: CLAIM_STATUS
         data_type: VARCHAR
         is_enum: true
-        sample_values: ["OPEN", "CLOSED", "PENDING_REVIEW", "DENIED", "UNDER_INVESTIGATION"]
+        sample_values:
+          - OPEN
+          - CLOSED
+          - PENDING_REVIEW
+          - DENIED
+          - UNDER_INVESTIGATION
       - name: line_of_business
-        synonyms: ["LOB", "business line", "product line", "insurance type"]
-        description: "Insurance line of business"
+        synonyms:
+          - business line
+          - insurance type
+          - LOB
+          - product line
+        description: Insurance line of business
         expr: LINE_OF_BUSINESS
         data_type: VARCHAR
         is_enum: true
-        sample_values: ["AUTO", "HOME", "COMMERCIAL", "WORKERS_COMP", "GL"]
-      - name: cause_of_loss
-        synonyms: ["loss cause", "peril", "reason"]
-        description: "What caused the insured loss"
-        expr: CAUSE_OF_LOSS
-        data_type: VARCHAR
-        sample_values: ["COLLISION", "FIRE", "WATER_DAMAGE", "THEFT", "WIND", "SLIP_AND_FALL"]
+        sample_values:
+          - AUTO
+          - HOME
+          - COMMERCIAL
+          - WORKERS_COMP
+          - GL
       - name: loss_state
-        synonyms: ["state", "claim location", "jurisdiction"]
-        description: "US state where loss occurred"
+        synonyms:
+          - claim location
+          - jurisdiction
+          - state
+        description: US state where loss occurred
         expr: LOSS_STATE
         data_type: VARCHAR
       - name: performer
-        synonyms: ["adjuster", "handler", "assigned to"]
-        description: "Claims adjuster handling this claim"
+        synonyms:
+          - adjuster
+          - assigned to
+          - handler
+        description: Claims adjuster handling this claim
         expr: PERFORMER
+        data_type: VARCHAR
+      - name: policy_id
+        description: Foreign key to policies table
+        expr: POLICY_ID
         data_type: VARCHAR
     time_dimensions:
       - name: loss_date
-        synonyms: ["date of loss", "incident date", "accident date"]
-        description: "Date the insured event occurred"
+        synonyms:
+          - accident date
+          - date of loss
+          - incident date
+        description: Date the insured event occurred
         expr: LOSS_DATE
         data_type: DATE
       - name: reported_date
-        synonyms: ["date reported", "FNOL date", "notification date"]
-        description: "Date claim was first reported"
+        synonyms:
+          - date reported
+          - FNOL date
+          - notification date
+        description: Date claim was first reported
         expr: REPORTED_DATE
         data_type: DATE
     filters:
-      - name: open_claims
-        description: "Claims currently open or under review"
-        expr: "CLAIM_STATUS IN ('OPEN', 'PENDING_REVIEW', 'UNDER_INVESTIGATION')"
       - name: closed_claims
-        description: "Claims that are closed or denied"
-        expr: "CLAIM_STATUS IN ('CLOSED', 'DENIED')"
+        description: Claims that are closed or denied
+        expr: CLAIM_STATUS IN ('CLOSED', 'DENIED')
+      - name: open_claims
+        description: Claims currently open or under review
+        expr: CLAIM_STATUS IN ('OPEN', 'PENDING_REVIEW', 'UNDER_INVESTIGATION')
     metrics:
-      - name: claim_count
-        synonyms: ["number of claims", "total claims", "claims filed"]
-        description: "Total number of distinct claims"
-        expr: COUNT(DISTINCT CLAIM_NO)
       - name: average_days_to_report
-        synonyms: ["reporting lag", "days to FNOL"]
-        description: "Average days between loss and first report"
+        synonyms:
+          - days to FNOL
+          - reporting lag
+        description: Average days between loss and first report
         expr: AVG(DATEDIFF('day', LOSS_DATE, REPORTED_DATE))
-
+      - name: claim_count
+        synonyms:
+          - claims filed
+          - number of claims
+          - total claims
+        description: Total number of distinct claims
+        expr: COUNT(DISTINCT CLAIM_NO)
+    primary_key:
+      columns:
+        - CLAIM_NO
   - name: claim_lines
-    description: "Itemized line items within each claim, linking claims to financial transactions"
+    description: Itemized line items within each claim, linking claims to financial transactions
     base_table:
       database: SENTINEL_DB
       schema: CLAIMS
       table: CLAIM_LINES
     dimensions:
+      - name: claim_no
+        description: Parent claim number
+        expr: CLAIM_NO
+        data_type: VARCHAR
       - name: line_no
-        description: "Unique claim line identifier"
+        description: Unique claim line identifier
         expr: LINE_NO
         data_type: VARCHAR
         unique: true
-      - name: claim_no
-        description: "Parent claim number"
-        expr: CLAIM_NO
-        data_type: VARCHAR
       - name: line_status
-        synonyms: ["line claim status"]
-        description: "Status of this claim line"
+        synonyms:
+          - line claim status
+        description: Status of this claim line
         expr: CLAIM_STATUS
         data_type: VARCHAR
         is_enum: true
-        sample_values: ["OPEN", "CLOSED", "PENDING_REVIEW", "DENIED"]
+        sample_values:
+          - OPEN
+          - CLOSED
+          - PENDING_REVIEW
+          - DENIED
       - name: performer_id
-        synonyms: ["line adjuster"]
-        description: "Adjuster handling this line"
+        synonyms:
+          - line adjuster
+        description: Adjuster handling this line
         expr: PERFORMER_ID
         data_type: VARCHAR
     time_dimensions:
       - name: line_created_date
-        description: "Date the claim line was created"
+        description: Date the claim line was created
         expr: CREATED_DATE
         data_type: TIMESTAMP
-
+    primary_key:
+      columns:
+        - LINE_NO
   - name: financial_transactions
-    description: "Payment and reserve transactions on claim lines"
+    description: Payment and reserve transactions on claim lines
     base_table:
       database: SENTINEL_DB
       schema: CLAIMS
       table: FINANCIAL_TRANSACTIONS
     dimensions:
       - name: financial_type
-        synonyms: ["transaction type", "type"]
-        description: "RSV = reserve set, PAY = payment made"
+        synonyms:
+          - transaction type
+          - type
+        description: RSV = reserve set, PAY = payment made
         expr: FINANCIAL_TYPE
         data_type: VARCHAR
         is_enum: true
-        sample_values: ["RSV", "PAY"]
+        sample_values:
+          - RSV
+          - PAY
+      - name: line_no
+        description: Foreign key to claim lines
+        expr: LINE_NO
+        data_type: VARCHAR
     time_dimensions:
       - name: transaction_date
-        synonyms: ["payment date", "posting date"]
-        description: "Date transaction was posted"
+        synonyms:
+          - payment date
+          - posting date
+        description: Date transaction was posted
         expr: FIN_TX_POST_DT
         data_type: DATE
     facts:
       - name: transaction_amount
-        description: "Dollar amount of the transaction"
+        description: Dollar amount of the transaction
         expr: FIN_TX_AMT
         data_type: NUMBER
     metrics:
-      - name: total_paid
-        synonyms: ["total payments", "paid amount", "total payouts"]
-        description: "Sum of all payment transactions"
-        expr: "SUM(CASE WHEN FINANCIAL_TYPE = 'PAY' THEN FIN_TX_AMT ELSE 0 END)"
-      - name: total_reserves
-        synonyms: ["outstanding reserves", "reserve amount"]
-        description: "Sum of all reserve transactions"
-        expr: "SUM(CASE WHEN FINANCIAL_TYPE = 'RSV' THEN FIN_TX_AMT ELSE 0 END)"
       - name: total_incurred
-        synonyms: ["total incurred losses", "incurred"]
-        description: "Total incurred = payments + reserves"
+        synonyms:
+          - incurred
+          - total incurred losses
+        description: Total incurred = payments + reserves
         expr: SUM(FIN_TX_AMT)
-
+      - name: total_paid
+        synonyms:
+          - paid amount
+          - total payments
+          - total payouts
+        description: Sum of all payment transactions
+        expr: SUM(CASE WHEN FINANCIAL_TYPE = 'PAY' THEN FIN_TX_AMT ELSE 0 END)
+      - name: total_reserves
+        synonyms:
+          - outstanding reserves
+          - reserve amount
+        description: Sum of all reserve transactions
+        expr: SUM(CASE WHEN FINANCIAL_TYPE = 'RSV' THEN FIN_TX_AMT ELSE 0 END)
   - name: policies
-    description: "Insurance policies with coverage and premium details"
+    description: Insurance policies with coverage and premium details
     base_table:
       database: SENTINEL_DB
       schema: CLAIMS
       table: POLICIES
     dimensions:
       - name: policy_id
-        synonyms: ["policy number"]
-        description: "Unique policy identifier"
+        synonyms:
+          - policy number
+        description: Unique policy identifier
         expr: POLICY_ID
         data_type: VARCHAR
         unique: true
       - name: policy_type
-        synonyms: ["product", "coverage type"]
-        description: "Type of insurance policy"
+        synonyms:
+          - coverage type
+          - product
+        description: Type of insurance policy
         expr: POLICY_TYPE
         data_type: VARCHAR
         is_enum: true
-        sample_values: ["AUTO", "HOME", "COMMERCIAL", "WORKERS_COMP", "GL"]
+        sample_values:
+          - AUTO
+          - HOME
+          - COMMERCIAL
+          - WORKERS_COMP
+          - GL
       - name: status
-        synonyms: ["policy status"]
-        description: "Active, expired, cancelled"
+        synonyms:
+          - policy status
+        description: Active, expired, cancelled
         expr: STATUS
         data_type: VARCHAR
         is_enum: true
-        sample_values: ["ACTIVE", "EXPIRED", "CANCELLED", "PENDING"]
+        sample_values:
+          - ACTIVE
+          - EXPIRED
+          - CANCELLED
+          - PENDING
     facts:
       - name: annual_premium
-        synonyms: ["premium", "written premium"]
-        description: "Annual premium amount"
+        synonyms:
+          - premium
+          - written premium
+        description: Annual premium amount
         expr: ANNUAL_PREMIUM
         data_type: NUMBER
     metrics:
-      - name: total_premium
-        synonyms: ["total written premium", "premium volume"]
-        description: "Sum of all annual premiums"
-        expr: SUM(ANNUAL_PREMIUM)
       - name: policy_count
-        synonyms: ["number of policies", "policies in force"]
-        description: "Count of distinct policies"
+        synonyms:
+          - number of policies
+          - policies in force
+        description: Count of distinct policies
         expr: COUNT(DISTINCT POLICY_ID)
-
+      - name: total_premium
+        synonyms:
+          - premium volume
+          - total written premium
+        description: Sum of all annual premiums
+        expr: SUM(ANNUAL_PREMIUM)
+    primary_key:
+      columns:
+        - POLICY_ID
+metrics:
+  - name: loss_ratio
+    description: Loss ratio = total incurred / total premium. Key profitability metric.
+    synonyms:
+      - claims ratio
+      - loss ratio percentage
+    expr: financial_transactions.total_incurred / NULLIF(policies.total_premium, 0)
 relationships:
   - name: claims_to_policies
     left_table: claims
@@ -219,18 +318,11 @@ relationships:
     relationship_columns:
       - left_column: LINE_NO
         right_column: LINE_NO
-
-metrics:
-  - name: loss_ratio
-    synonyms: ["claims ratio", "loss ratio percentage"]
-    description: "Loss ratio = total incurred / total premium. Key profitability metric."
-    expr: financial_transactions.total_incurred / NULLIF(policies.total_premium, 0)
-
 verified_queries:
   - name: monthly_claims_count
-    question: "How many claims were filed each month this year?"
+    question: How many claims were filed each month this year?
     use_as_onboarding_question: true
-    verified_by: "Hackathon Team"
+    verified_by: Hackathon Team
     verified_at: 1710000000
     sql: |
       SELECT DATE_TRUNC('MONTH', loss_date) AS month,
@@ -238,47 +330,44 @@ verified_queries:
       FROM __claims
       WHERE YEAR(loss_date) = YEAR(CURRENT_DATE())
       GROUP BY month ORDER BY month
-
   - name: top_states_incurred
-    question: "What are the top 10 states by total incurred losses?"
+    question: What are the top 10 states by total incurred losses?
     use_as_onboarding_question: true
-    verified_by: "Hackathon Team"
+    verified_by: Hackathon Team
     verified_at: 1710000000
     sql: |
-      SELECT c.loss_state,
-             SUM(ft.fin_tx_amt) AS total_incurred
-      FROM __claims c
-      JOIN __claim_lines cl ON c.claim_no = cl.claim_no
-      JOIN __financial_transactions ft ON cl.line_no = ft.line_no
-      GROUP BY c.loss_state
+      SELECT loss_state,
+             SUM(transaction_amount) AS total_incurred
+      FROM __claims
+      JOIN __claim_lines ON __claims.claim_no = __claim_lines.claim_no
+      JOIN __financial_transactions ON __claim_lines.line_no = __financial_transactions.line_no
+      GROUP BY loss_state
       ORDER BY total_incurred DESC LIMIT 10
-
-  - name: open_claims_by_lob
-    question: "How many open claims are there by line of business?"
+  - name: loss_ratio_by_lob
+    question: What is the loss ratio by line of business?
     use_as_onboarding_question: true
-    verified_by: "Hackathon Team"
+    verified_by: Hackathon Team
+    verified_at: 1710000000
+    sql: |
+      SELECT line_of_business,
+             SUM(transaction_amount) AS total_incurred,
+             SUM(annual_premium) AS total_premium,
+             SUM(transaction_amount) / NULLIF(SUM(annual_premium), 0) AS loss_ratio
+      FROM __claims
+      JOIN __policies ON __claims.policy_id = __policies.policy_id
+      JOIN __claim_lines ON __claims.claim_no = __claim_lines.claim_no
+      JOIN __financial_transactions ON __claim_lines.line_no = __financial_transactions.line_no
+      GROUP BY line_of_business ORDER BY loss_ratio DESC
+  - name: open_claims_by_lob
+    question: How many open claims are there by line of business?
+    use_as_onboarding_question: true
+    verified_by: Hackathon Team
     verified_at: 1710000000
     sql: |
       SELECT line_of_business, COUNT(DISTINCT claim_no) AS open_count
       FROM __claims
       WHERE claim_status IN ('OPEN', 'PENDING_REVIEW', 'UNDER_INVESTIGATION')
       GROUP BY line_of_business ORDER BY open_count DESC
-
-  - name: loss_ratio_by_lob
-    question: "What is the loss ratio by line of business?"
-    use_as_onboarding_question: true
-    verified_by: "Hackathon Team"
-    verified_at: 1710000000
-    sql: |
-      SELECT c.line_of_business,
-             SUM(ft.fin_tx_amt) AS total_incurred,
-             SUM(p.annual_premium) AS total_premium,
-             SUM(ft.fin_tx_amt) / NULLIF(SUM(p.annual_premium), 0) AS loss_ratio
-      FROM __claims c
-      JOIN __policies p ON c.policy_id = p.policy_id
-      JOIN __claim_lines cl ON c.claim_no = cl.claim_no
-      JOIN __financial_transactions ft ON cl.line_no = ft.line_no
-      GROUP BY c.line_of_business ORDER BY loss_ratio DESC
 
 
 **Step 2: Upload semantic model and create custom tools**
